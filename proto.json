@@ -1,0 +1,62 @@
+{
+   "gpss" : [
+      {
+         "distance" : 18.6010752377383,
+         "position" : {
+            "x" : -10,
+            "y" : -8
+         }
+      },
+      {
+         "position" : {
+            "x" : 12,
+            "y" : -5
+         },
+         "distance" : 10.6301458127346
+      },
+      {
+         "distance" : 10.816653826392,
+         "position" : {
+            "x" : -4,
+            "y" : 9
+         }
+      }
+   ],
+   "players" : [
+      {
+         "score" : 0,
+         "name" : "<Your Name Here>",
+         "color" : null,
+         "position" : {
+            "y" : 0,
+            "x" : 0
+         }
+      },
+      {
+         "score" : 0,
+         "color" : null,
+         "position" : {
+            "x" : 0,
+            "y" : 0
+         },
+         "name" : "<Your Name Here>"
+      }
+   ],
+   "sampleCommands" : [
+      {
+         "contents" : "Kris",
+         "tag" : "SetName"
+      },
+      {
+         "contents" : "#ff0000",
+         "tag" : "SetColor"
+      },
+      {
+         "contents" : {
+            "x" : 1,
+            "y" : -2
+         },
+         "tag" : "Move"
+      }
+   ]
+}
