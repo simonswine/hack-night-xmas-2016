@@ -27,6 +27,43 @@ type Command struct {
 	Tag      string `json:"tag"`
 }
 
+
+func q_func(e1 GPSElement, e2 GPSElement) float64 {
+	x1 := e1.Position.X
+	y1 := e1.Position.Y
+	d1 := e1.Distance
+	x2 := e2.Position.X
+	y2 := e2.Position.Y
+	d2 := e2.Distance
+	return ((x2 - x1) * (x2 - x1) + (y2 - y1) * (y2 - y1) + d2 * d2 - d1 * d1) / 2.0
+}
+
+func k_func(e1 GPSElement, e2 GPSElement) float64 {
+	y1 := e1.Position.Y
+	y2 := e2.Position.Y
+
+	return q_func(e1, e2) / (y2 - y1)
+}
+
+func q_func(e1 GPSElement, e2 GPSElement) float64 {
+	x1 := e1.Position.X
+	y1 := e1.Position.Y
+	x2 := e2.Position.X
+	y2 := e2.Position.Y
+	return (x2 - x1) / (y2 - y1)
+}
+
+
+func x_c_func(e1 GPSElement, e2 GPSElement, e3 GPSElement) float64 {
+	return (k_func(e2, e3) - k_func(e1, e2)) / (r_func(e1, e2) - r_func(e2, e3)) - e1.Position.X
+}
+
+
+func y_c_func(e1 GPSElement, e2 GPSElement, e3 GPSElement) float64 {
+	return r_func(e1, e1) * ((k_func(e2, e3) - k_func(e1, e2)) / (r_func(e1, e2) - r_func(e2, e3))) - k_func(e1, e2) - e1.Position.Y
+}
+
+
 func (w *World) CommandTag(tag, content string) error {
 	c := &Command{
 		Tag:      tag,
@@ -89,5 +126,17 @@ func main() {
 			continue
 		}
 		log.Infof("message: %+v", game)
+
+		// get our position from game
+		// calculate gift position from game[0..2]
+		// move  gift positino - our poisitin
+
+		our_pos_x := 0
+		our_pos_y := 0
+
+		prize_x := x_c_func(game.GPSS[0], game.GPSS[1], game.GPSS[2])
+		prize_y := y_c_func(game.GPSS[0], game.GPSS[1], game.GPSS[2])
+
+		// command Move (prize_x - our_x, prize_y - our_y)
 	}
 }
