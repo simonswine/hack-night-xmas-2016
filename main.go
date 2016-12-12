@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	log "github.com/Sirupsen/logrus"
 	"golang.org/x/net/websocket"
+	"math"
 	"sync"
 	"time"
 )
@@ -40,6 +41,7 @@ type World struct {
 	encoder       *json.Encoder
 	myPosition    Position
 	prizePosition Position
+	throttle      <-chan time.Time
 }
 
 type Command struct {
@@ -53,6 +55,7 @@ type Move struct {
 }
 
 func (w *World) Encode(v interface{}) error {
+	<-w.throttle
 	return w.encoder.Encode(v)
 }
 
@@ -99,8 +102,14 @@ func (w *World) CommandTag(tag, content string) error {
 }
 
 func (w *World) Run() {
+	var err error
+
 	w.encoder = json.NewEncoder(w.socket)
-	err := w.CommandTag("SetName", "team-golang")
+
+	rate := time.Second / 11
+	w.throttle = time.Tick(rate)
+
+	err = w.CommandTag("SetName", "team-golang")
 	if err != nil {
 		log.Fatal("error setting name: ", err)
 	}
@@ -124,14 +133,27 @@ func (w *World) Run() {
 				continue
 			}
 			log.Debugf("game: %+v", game)
+			x, y := calc(
+				game.GPSS[0].Position.X,
+				game.GPSS[0].Position.Y,
+				game.GPSS[0].Distance,
+				game.GPSS[1].Position.X,
+				game.GPSS[1].Position.Y,
+				game.GPSS[1].Distance,
+				game.GPSS[2].Position.X,
+				game.GPSS[2].Position.Y,
+				game.GPSS[2].Distance,
+			)
 			w.prizePosition = Position{
-				X: x_c_func(game.GPSS[0], game.GPSS[1], game.GPSS[2]),
-				Y: y_c_func(game.GPSS[0], game.GPSS[1], game.GPSS[2]),
+				X: x,
+				Y: y,
 			}
 
 			for _, player := range game.Players {
 				if player.Name == "team-golang" {
 					w.myPosition = player.Position
+					w.myPosition.X++
+					w.myPosition.Y++
 					break
 				}
 			}
@@ -144,7 +166,6 @@ func (w *World) Run() {
 		defer wg.Done()
 		for {
 			w.Move(int(w.prizePosition.X-w.myPosition.X), int(w.prizePosition.Y-w.myPosition.Y))
-			time.Sleep(500 * time.Millisecond)
 		}
 	}()
 
@@ -170,6 +191,78 @@ func NewWorld(url string) (*World, error) {
 	w := &World{socket: ws}
 
 	return w, nil
+}
+
+func calc(x0, y0, r0, x1, y1, r1, x2, y2, r2 float64) (x float64, y float64) {
+	EPSILON := 0.00001
+	var a, dx, dy, d, h, rx, ry float64
+	var point2_x, point2_y float64
+
+	/* dx and dy are the vertical and horizontal distances between
+	 * the circle centers.
+	 */
+	dx = x1 - x0
+	dy = y1 - y0
+
+	/* Determine the straight-line distance between the centers. */
+	d = math.Sqrt((dy * dy) + (dx * dx))
+
+	/* Check for solvability. */
+	if d > (r0 + r1) {
+		/* no solution. circles do not intersect. */
+		return
+	}
+	if d < math.Abs(r0-r1) {
+		/* no solution. one circle is contained in the other */
+		return
+	}
+
+	/* 'point 2' is the point where the line through the circle
+	 * intersection points crosses the line between the circle
+	 * centers.
+	 */
+
+	/* Determine the distance from point 0 to point 2. */
+	a = ((r0 * r0) - (r1 * r1) + (d * d)) / (2.0 * d)
+
+	/* Determine the coordinates of point 2. */
+	point2_x = x0 + (dx * a / d)
+	point2_y = y0 + (dy * a / d)
+
+	/* Determine the distance from point 2 to either of the
+	 * intersection points.
+	 */
+	h = math.Sqrt((r0 * r0) - (a * a))
+
+	/* Now determine the offsets of the intersection points from
+	 * point 2.
+	 */
+	rx = -dy * (h / d)
+	ry = dx * (h / d)
+
+	/* Determine the absolute intersection points. */
+	intersectionPoint1_x := point2_x + rx
+	intersectionPoint2_x := point2_x - rx
+	intersectionPoint1_y := point2_y + ry
+	intersectionPoint2_y := point2_y - ry
+
+	/* Lets determine if circle 3 intersects at either of the above intersection points. */
+	dx = intersectionPoint1_x - x2
+	dy = intersectionPoint1_y - y2
+	d1 := math.Sqrt((dy * dy) + (dx * dx))
+
+	dx = intersectionPoint2_x - x2
+	dy = intersectionPoint2_y - y2
+	d2 := math.Sqrt((dy * dy) + (dx * dx))
+
+	if math.Abs(d1-r2) < EPSILON {
+		return intersectionPoint1_x, intersectionPoint1_y
+	} else if math.Abs(d2-r2) < EPSILON {
+		return intersectionPoint2_x, intersectionPoint2_y
+	} else {
+		return
+	}
+	return
 }
 
 func main() {
